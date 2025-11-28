@@ -61,4 +61,4 @@ Gamify your productivity with **plant growth animations** and maintain streaks w
 ## 🎯 Installation & Usage
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/morning-aura.git
+git clone https://github.com/sowndariya-k/Morning-Aura.git

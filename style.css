@@ -1,0 +1,313 @@
+
+        /* --- VARIABLES --- */
+        :root {
+            --bg-dark: #020617;
+            --text-light: #f1f5f9;
+            --glass-bg: rgba(15, 23, 42, 0.85);
+            --glass-border: rgba(56, 189, 248, 0.15);
+            --accent: #38bdf8;
+            --plant-green: #65a30d;
+            --stem-brown: #5D4037;
+            --soil-brown: #3e2723;
+        }
+
+        body.light {
+            --bg-dark: #f0f9ff;
+            --text-light: #0f172a;
+            --glass-bg: rgba(255, 255, 255, 0.9);
+            --glass-border: rgba(59, 130, 246, 0.2);
+            --accent: #2563eb;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            overflow-x: hidden;
+            transition: 0.5s ease;
+            min-height: 100vh;
+        }
+        h1, h2, h3, h4 { font-family: 'Outfit', sans-serif; }
+
+        /* --- BACKGROUND --- */
+        .ambient-bg { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; pointer-events: none; }
+        .particle {
+            position: absolute; color: var(--accent); opacity: 0.6; font-size: 1.5rem;
+            animation: floatUp linear infinite;
+            text-shadow: 0 0 10px var(--accent);
+        }
+        @keyframes floatUp {
+            0% { transform: translateY(100vh) rotate(0deg) scale(0.5); opacity: 0; }
+            20% { opacity: 0.6; }
+            80% { opacity: 0.6; }
+            100% { transform: translateY(-10vh) rotate(360deg) scale(1); opacity: 0; }
+        }
+
+        /* --- UTILS --- */
+        .hidden { display: none !important; }
+        .flex { display: flex; }
+        .center { align-items: center; justify-content: center; }
+        
+        .glass {
+            background: var(--glass-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border); border-radius: 1rem; box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        button { cursor: pointer; border: none; outline: none; transition: 0.3s; }
+
+        /* --- LAYOUT & STAGES --- */
+        .page-container { 
+            min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            padding: 2rem; position: relative; padding-top: 5rem; z-index: 10;
+        }
+
+        /* Top Bar */
+        .top-bar {
+            position: absolute; top: 2rem; right: 2rem; z-index: 50;
+        }
+        .streak-pill {
+            background: rgba(56, 189, 248, 0.15); border: 1px solid var(--accent); color: var(--accent);
+            padding: 0.6rem 1.2rem; border-radius: 2rem; font-weight: 800; font-size: 1rem;
+            display: flex; align-items: center; gap: 0.5rem; box-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
+            backdrop-filter: blur(5px);
+        }
+
+        /* Plant Stage */
+        .plant-stage {
+            position: relative; width: 300px; height: 450px;
+            display: flex; justify-content: center; align-items: flex-end;
+            margin-bottom: 2rem;
+        }
+
+        /* Soil Land Base */
+        .soil-land {
+            width: 220px; height: 70px;
+            background: var(--soil-brown);
+            border-radius: 50% 50% 0 0; /* Mound shape */
+            position: absolute; bottom: 0; z-index: 10;
+            box-shadow: inset 0 -10px 20px rgba(0,0,0,0.6);
+        }
+
+        /* Plant Structure Container */
+        .plant-structure {
+            position: absolute; bottom: 40px; /* Starts from top of soil */
+            width: 300px; height: 350px;
+            z-index: 5; 
+            pointer-events: none;
+        }
+
+        /* Main Central Stem */
+        .main-stem {
+            width: 12px; height: 0; 
+            background: linear-gradient(to right, #3f6212, #65a30d, #3f6212);
+            border-radius: 10px; 
+            position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+            transition: height 1s ease-in-out;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.3);
+            z-index: 2;
+        }
+
+        /* Dynamic Branches */
+       .branch {
+    position: absolute;
+    width: 8px;
+    height: 0;
+    background: linear-gradient(to top, #4d7c0f, #84cc16);
+    border-radius: 6px;
+    transform-origin: bottom center;
+    transition: height 1s ease;
+    z-index: 1;
+}
+
+/* Leaves */
+.leaf {
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    background-image: url('https://cdn-icons-png.flaticon.com/512/892/892917.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    opacity: 0;
+    z-index: 3;
+}
+
+/* RIGHT leaf — placed close to stem */
+.leaf-right {
+    left: 50%;
+    margin-left: 5px; /* aligned tight */
+    transform-origin: bottom left;
+    animation: growLeafRight 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* LEFT leaf — mirrored and placed tight to stem */
+.leaf-left {
+    left: 50%;
+    margin-left: -95px; /* moved closer */
+    transform-origin: bottom right;
+    transform: scaleX(-1);
+    animation: growLeafLeft 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes growLeafRight {
+    0% { transform: scale(0) rotate(0deg); opacity: 0; }
+    100% { transform: scale(1) rotate(35deg); opacity: 1; }
+}
+
+@keyframes growLeafLeft {
+    0% { transform: scaleX(-1) scale(0) rotate(0deg); opacity: 0; }
+    100% { transform: scaleX(-1) scale(1) rotate(35deg); opacity: 1; }
+}
+
+/* FLOWER */
+/* Flower Stalk */
+/* Flower Stalk */
+.flower-stalk {
+    position: absolute;
+    width: 45px;        /* stalk length */
+    height: 6px;
+    background: linear-gradient(to right, #3f6212, #65a30d);
+    border-radius: 4px;
+    transform-origin: left center; /* pivot from the left end which sits on the stem */
+    z-index: 5;
+}
+
+/* Flower attached to stalk tip */
+.flower {
+    position: absolute;
+    width: 55px;
+    height: 55px;
+    background-image: url('https://cdn-icons-png.flaticon.com/512/346/346167.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    opacity: 0;
+    animation: bloom 0.8s ease-out forwards;
+    z-index: 12; /* above leaves */
+    /* default: place at the right end of the stalk and vertically center on that end */
+    left: 100%;
+    top: 50%;
+    transform: translate(6px, -50%); /* slight forward offset so it doesn't overlap stalk */
+}
+.flower-left {
+    transform: scaleX(-1) rotate(-20deg);
+    margin-left: -30px;
+}
+
+.flower-right {
+    transform: rotate(20deg);
+    margin-left: 10px;
+}
+
+
+/* animation */
+@keyframes bloom {
+    0% { transform: scale(0) translate(6px, -50%); opacity: 0; }
+    100% { transform: scale(1) translate(6px, -50%); opacity: 1; }
+}
+
+        /* Watering Can */
+        .water-bottle-container {
+            position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
+            z-index: 20; pointer-events: none; opacity: 0; transition: opacity 0.3s;
+        }
+        .water-bottle-container.active { opacity: 1; pointer-events: auto; }
+        .water-bottle-img { width: 80px; transition: transform 0.5s; filter: drop-shadow(0 5px 15px rgba(0,0,0,0.3)); }
+        
+        /* Water Drops */
+        .water-drops {
+            position: absolute; top: 80px; left: 50%; transform: translateX(-50%);
+            width: 10px; height: 250px;
+            display: none; flex-direction: column; gap: 20px; pointer-events: none;
+        }
+        .drop {
+            width: 8px; height: 8px; background: rgba(147, 197, 253, 0.9);
+            border-radius: 50%; box-shadow: 0 0 8px rgba(147, 197, 253, 0.6);
+            animation: dropFall 0.5s linear infinite;
+        }
+
+        .water-bottle-container.pouring .water-bottle-img { transform: rotate(-135deg) translate(-20px, -20px); }
+        .water-bottle-container.pouring .water-drops { display: flex; }
+
+        @keyframes dropFall {
+            0% { transform: translateY(0); opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(220px); opacity: 0; }
+        }
+
+        /* Buttons & Quotes */
+        .quote-box {
+            text-align: center; max-width: 600px; padding: 2rem; opacity: 0; transform: translateY(20px); transition: 0.8s;
+            background: linear-gradient(145deg, rgba(15,23,42,0.9), rgba(15,23,42,0.6));
+            border: 1px solid var(--accent); border-radius: 1.5rem; margin-top: 1rem;
+        }
+        .quote-box.visible { opacity: 1; transform: translateY(0); }
+        .quote-text { font-size: 1.4rem; font-weight: 600; margin-bottom: 1rem; line-height: 1.5; font-style: italic; }
+        
+        .btn-primary {
+            padding: 1rem 3rem; background: linear-gradient(135deg, #0ea5e9, #2563eb);
+            color: white; font-weight: 800; font-size: 1.2rem; border-radius: 1rem;
+            box-shadow: 0 0 20px rgba(14, 165, 233, 0.4); display: flex; align-items: center; gap: 0.8rem; margin: 1.5rem auto;
+        }
+        .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 0 30px rgba(14, 165, 233, 0.6); }
+
+        /* --- PLANNER UI --- */
+        .planner-container { max-width: 1400px; margin: 0 auto; padding: 2rem; display: flex; flex-direction: column; min-height: 100vh; z-index: 10; position: relative;}
+        .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; padding: 1.5rem; background: var(--glass-bg); border-radius: 1.5rem; border: 1px solid var(--glass-border); }
+        .logout-btn { background: rgba(239, 68, 68, 0.15); color: #f87171; padding: 0.8rem 1.5rem; border-radius: 0.8rem; font-weight: 700; border: 1px solid rgba(239, 68, 68, 0.3); display: flex; align-items: center; gap: 0.5rem; }
+        .logout-btn:hover { background: #ef4444; color: white; }
+
+        /* Inputs & Matrix */
+        .input-wrap { padding: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+        .big-input { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); padding: 1.2rem; border-radius: 1rem; font-size: 1.2rem; color: inherit; outline: none; transition: 0.3s; }
+        .big-input:focus { border-color: var(--accent); background: rgba(255,255,255,0.1); }
+        
+        /* Swipe Toggles */
+        .toggle-group { display: flex; gap: 1rem; }
+        .swipe-toggle {
+            flex: 1; background: rgba(255,255,255,0.05); padding: 0.5rem; border-radius: 3rem;
+            display: flex; align-items: center; cursor: pointer; position: relative; border: 1px solid transparent;
+            height: 3.5rem; transition: 0.3s;
+        }
+        .swipe-toggle.active { border-color: var(--accent); background: rgba(56, 189, 248, 0.1); }
+        
+        .toggle-knob {
+            width: 2.5rem; height: 2.5rem; background: #64748b; border-radius: 50%;
+            transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex; align-items: center; justify-content: center; color: white;
+        }
+        .swipe-toggle.active .toggle-knob { transform: translateX(calc(100% + 2.5rem)); background: var(--accent); }
+        .toggle-label { flex: 1; text-align: center; font-weight: 700; font-size: 1rem; opacity: 0.6; }
+        .swipe-toggle.active .toggle-label { opacity: 1; color: var(--accent); }
+
+        .matrix-grid { display: grid; grid-template-columns: 1fr; gap: 1.5rem; margin-top: 2rem; }
+        @media(min-width: 1024px) { .matrix-grid { grid-template-columns: 1fr 1fr; } }
+        .matrix-box { padding: 1.5rem; min-height: 250px; display: flex; flex-direction: column; }
+        .task-item { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.08); padding: 1rem; margin-bottom: 0.8rem; border-radius: 0.8rem; font-size: 1.1rem; border-left: 4px solid var(--accent); }
+
+        /* Animations */
+        .fade-in { animation: fadeIn 0.8s forwards; opacity: 0; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* --- MODAL --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 100;
+            background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center;
+            backdrop-filter: blur(5px);
+        }
+        .modal-box {
+            background: var(--bg-dark); border: 1px solid var(--glass-border);
+            padding: 2rem; border-radius: 1.5rem; max-width: 400px; width: 90%; text-align: center;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5); animation: scaleUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes scaleUp { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .modal-actions { display: flex; gap: 1rem; justify-content: center; margin-top: 1.5rem; }
+        .btn-cancel { background: transparent; border: 1px solid rgba(255,255,255,0.2); color: inherit; padding: 0.8rem 1.5rem; border-radius: 0.8rem; font-weight: 600; }
+        .btn-confirm { background: #ef4444; color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 0.8rem; font-weight: 600; }
+
+        /* Summary */
+        .summary-card { 
+            background: var(--glass-bg); padding: 4rem; border-radius: 2rem; 
+            border: 1px solid var(--glass-border); text-align: center; 
+            max-width: 600px; width: 100%; margin: auto;
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        }
