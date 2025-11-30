@@ -150,36 +150,74 @@
         }
 
         function ensureFlowerMilestone(currentStreak) {
-            const currentBlock = Math.floor(currentStreak / 10);
-            const hasMilestone = appData.flowerMilestones.some(m => Math.floor(m/10) === currentBlock);
-            
-            if (!hasMilestone) {
-                const min = currentBlock * 10 + 1;
-                const max = (currentBlock + 1) * 10;
-                const randomDay = Math.floor(Math.random() * (max - min + 1)) + min;
-                appData.flowerMilestones.push(randomDay);
-                saveData();
+            // For main stem (days 1-10), ensure 1 flower
+            if (currentStreak > 0 && currentStreak <= 10) {
+                const hasMilestone = appData.flowerMilestones.some(m => m > 0 && m <= 10);
+                if (!hasMilestone) {
+                    const randomDay = Math.floor(Math.random() * 10) + 1;
+                    appData.flowerMilestones.push(randomDay);
+                }
+            } 
+            // For branches, ensure 2 flowers per 11-day cycle
+            else if (currentStreak > 10) {
+                const branchDays = currentStreak - 10; // Days past the main stem
+                const currentBlock = Math.floor((branchDays - 1) / 9); // 0-indexed branch block (9 items per branch)
+                const min = 11 + (currentBlock * 9); // Start day of the block
+                const max = min + 8; // End day of the block (9 days total)
+
+                const milestonesInBlock = appData.flowerMilestones.filter(m => m >= min && m <= max).length;
+
+                // Add flowers until there are 2 in the current 9-day block
+                for (let i = milestonesInBlock; i < 2; i++) {
+                    let randomDay;
+                    do {
+                        randomDay = Math.floor(Math.random() * (max - min + 1)) + min;
+                    } while (appData.flowerMilestones.includes(randomDay)); // Ensure it's unique
+                    appData.flowerMilestones.push(randomDay);
+                }
             }
+            saveData();
         }
 
         /* --- PLANT ENGINE --- */
         function renderPlantVisuals(streakCount) {
             const plantStructure = document.getElementById('plant-structure');
+            const plantStage = document.querySelector('.plant-stage');
+            const welcomePage = document.getElementById('page-welcome');
             plantStructure.innerHTML = ''; 
 
-            // 1. MAIN STEM (Days 1-10)
-            const mainStem = document.createElement('div');
+            // 1. MAIN STEM
+            const mainStem = document.createElement('div'); 
             mainStem.className = 'main-stem';
-            let mainHeight = Math.min(streakCount * 25, 250);
-            if(streakCount === 0) mainHeight = 0;
-            if(streakCount > 0 && mainHeight < 40) mainHeight = 40;
-            if(streakCount > 10) mainHeight = 250; 
-            
+
+            // Calculate required stem height
+            const baseStemHeight = 300; // Height after first 10 days
+            let requiredHeight = baseStemHeight;
+            if (streakCount > 10) {
+                const numBranches = Math.ceil((streakCount - 10) / 9);
+                // Required height is the position of the highest branch + some padding
+                requiredHeight = 100 + ((numBranches - 1) * 70) + 50;
+            }
+            let mainHeight = Math.max(40, Math.min(streakCount * 30, requiredHeight));
+            if (streakCount === 0) mainHeight = 0;
+
             mainStem.style.height = mainHeight + 'px';
             plantStructure.appendChild(mainStem);
 
+            // --- Responsive Scaling Logic ---
+            const baseStageHeight = 450;
+            const newStageHeight = Math.max(baseStageHeight, mainHeight + 150);
+            plantStage.style.height = `${newStageHeight}px`;
+
+            // As the stage gets taller, calculate a scale factor to keep the plant in view.
+            // This will scale the plant down when its container grows very large.
+            const scaleFactor = Math.min(1, baseStageHeight / (newStageHeight - 150));
+            plantStage.style.setProperty('--plant-scale', scaleFactor);
+
+            welcomePage.style.justifyContent = newStageHeight > baseStageHeight ? 'flex-start' : 'center';
+
             // 2. MAIN STEM LEAVES
-            const mainLeafCount = Math.min(streakCount, 10);
+            const mainLeafCount = Math.min(streakCount, 10); // 10 items on the main stem
             for(let i=0; i<mainLeafCount; i++) {
                 const dayVal = i + 1;
                 if (appData.flowerMilestones.includes(dayVal)) {
@@ -191,16 +229,14 @@
 
             // 3. BRANCHING (Days 11+)
             if (streakCount > 10) {
-                const branchDays = streakCount - 10;
-                const numBranches = Math.ceil(branchDays / 10); 
+                const branchDays = streakCount - 10; // How many days past the main stem
+                const numBranches = Math.ceil(branchDays / 9); // Each branch cycle is 9 days (7 leaves, 2 flowers)
                 
                 for (let b = 0; b < numBranches; b++) {
-                    const branchStartDay = b * 10;
+                    const branchStartDay = b * 9;
                     const daysIntoBranch = branchDays - branchStartDay;
-                    // First day of branch cycle (11, 21...) is Branch Growing
-                    // Leaves start on day 2 of cycle (12, 22...)
-                    const leafCountOnBranch = Math.max(0, daysIntoBranch - 1);
-
+                    // A new leaf/flower should grow with the branch. Cap at 9 items per branch.
+                    const leafCountOnBranch = Math.max(0, Math.min(daysIntoBranch, 9));
                     createBranch(plantStructure, b, leafCountOnBranch, streakCount);
                 }
             }
@@ -211,30 +247,32 @@
             branch.className = 'branch';
             
             const isLeft = branchIndex % 2 !== 0;
-            const bottomOffset = 100 + (branchIndex * 60); 
+            const bottomOffset = 100 + (branchIndex * 70); 
+            if (isLeft) {
+                branch.classList.add('left-branch');
+            }
             
             branch.style.bottom = `${bottomOffset}px`;
             branch.style.left = '50%';
             
             // Length calculation
-            let length = Math.min(20 + leafCount * 20, 140);
-            // if daysIntoBranch is 1 (branch start day), show small branch
-            if(leafCount === 0) length = 40; 
-            
+            // A full branch has 9 items.
+            const maxLength = 320; // Increase max branch length to give more room
+            let length = 40 + ((leafCount - 1) * (maxLength - 40) / 8); // Grow from 40 to 320 over 9 items. (leafCount-1)/8 ensures it reaches max length on the 9th item.
             branch.style.height = `${length}px`;
             branch.style.transform = isLeft ? 'rotate(-45deg)' : 'rotate(45deg)';
             
             container.appendChild(branch);
 
-            // Base streak for this branch (e.g. 11)
-            const branchBaseStreak = 10 + (branchIndex * 10);
+            // Base streak for this branch (e.g., 11 for the first branch)
+            const branchBaseStreak = 10 + (branchIndex * 9);
 
             // Iterate leaves. Note: i is 0-based index of leaf on branch.
             // Leaf 0 appears on Day 12 (Streak 12). 
             // Streak = base + 1 (branch day) + i + 1 (leaf day).
             for(let i=0; i<leafCount; i++) {
-                const currentStreakVal = branchBaseStreak + 1 + i + 1;
-                const isFlower = appData.flowerMilestones.includes(currentStreakVal);
+                const currentStreakVal = branchBaseStreak + i + 1;
+                const isFlower = appData.flowerMilestones.includes(currentStreakVal) && i < 9; // Ensure flowers don't replace leaves
 
                 if (isFlower) {
                     addFlowerToBranch(container, i, isLeft, bottomOffset, length);
@@ -246,26 +284,23 @@
 
        function addFlowerToContainer(container, index, isBranch, bottomOffset) {
     const stalk = document.createElement('div');
-    stalk.className = 'flower-stalk';
-    stalk.style.width = '40px';
+    stalk.className = 'flower-stalk fade-in';
 
-    const bottomPos = (index * 25) + 15 + bottomOffset; 
+    const bottomPos = (index * 30) + 20 + bottomOffset; // Increased spacing
     stalk.style.bottom = `${bottomPos}px`;
-    stalk.style.left = '50%';
 
     const flower = document.createElement('div');
     flower.className = 'flower';
 
-    // Flower attaches at end of stalk
-    flower.style.left = '100%';
-    flower.style.top = '-25px';
-
-   if (index % 2 === 0) { 
-    flower.classList.add('flower-left');
-} else { 
-    flower.classList.add('flower-right');
-}
-
+    if (index % 2 === 0) { 
+        stalk.classList.add('flower-left');
+        // The flower inside will be flipped by the parent's transform
+    } else { 
+        stalk.classList.add('flower-right');
+    }
+    
+    // The flower itself is positioned at the tip of the stalk via CSS
+    // It will inherit the correct orientation from its parent stalk
 
     stalk.appendChild(flower);
     container.appendChild(stalk);
@@ -274,8 +309,8 @@
 
 function addLeafToContainer(container, index, isBranch, bottomOffset) {
     const leaf = document.createElement('div');
-    leaf.className = 'leaf';
-    const bottomPos = (index * 25) + 15 + bottomOffset; 
+    leaf.className = 'leaf-on-stem'; // Use a specific class for stem leaves
+    const bottomPos = (index * 30) + 20 + bottomOffset; // Increased spacing
     leaf.style.bottom = `${bottomPos}px`;
 
     if (index % 2 === 0) { 
@@ -289,148 +324,143 @@ function addLeafToContainer(container, index, isBranch, bottomOffset) {
 
 
 function addFlowerToBranch(container, index, isBranchLeft, branchBottom, branchLen) {
-
-    const stalk = document.createElement('div');
-    stalk.className = 'flower-stalk';
-    stalk.style.width = '30px';
-
-    const distUpBranch = (index * 15) + 20; 
-    const rad = 45 * (Math.PI / 180);
-    const xDist = distUpBranch * Math.sin(rad);
-    const yDist = distUpBranch * Math.cos(rad);
-    const actualBottom = branchBottom + yDist;
-
-    stalk.style.bottom = `${actualBottom}px`;
-
+    // Create a single element for the flower on the branch, just like a leaf
     const flower = document.createElement('div');
-    flower.className = 'flower';
+    flower.className = 'flower-on-branch'; // Use a new, specific class
 
-    // Position relative to stalk tip
-    flower.style.left = '100%';
-    flower.style.top = '-12px';
+    // --- THIS LOGIC IS NOW IDENTICAL TO addLeafToBranch ---
 
-   if (isBranchLeft) {
-    flower.classList.add('flower-left');
-} else {
-    flower.classList.add('flower-right');
-}
+    // Position flower along the branch
+    const branchItemOffset = 50; // Start items further up the branch
+    const distUpBranch = branchItemOffset + (branchLen - branchItemOffset) / 9 * index;
 
+    const sideSign = index % 2 === 0 ? 1 : -1; // 1 for outer, -1 for inner
 
-    stalk.appendChild(flower);
-    container.appendChild(stalk);
+    const branchAngleRad = isBranchLeft ? -45 * (Math.PI / 180) : 45 * (Math.PI / 180);
+
+    const xPos = distUpBranch * Math.sin(branchAngleRad);
+    const yPos = distUpBranch * Math.cos(branchAngleRad);
+
+    flower.style.left = `calc(50% + ${xPos}px - 22px)`; // Center the flower (width 45px)
+    flower.style.bottom = `${branchBottom + yPos}px`;
+
+    const flowerAngle = (isBranchLeft ? -45 : 45) + (sideSign * 90);
+    flower.style.transform = `rotate(${flowerAngle}deg)`;
+
+    flower.style.opacity = 1; // Make it visible
+    container.appendChild(flower);
 }
 
         function addLeafToBranch(container, index, isBranchLeft, branchBottom, branchLen) {
             const leaf = document.createElement('div');
-            leaf.className = 'leaf';
-            
-            const distUpBranch = (index * 15) + 20; 
-            const rad = 45 * (Math.PI / 180);
-            const xDist = distUpBranch * Math.sin(rad);
-            const yDist = distUpBranch * Math.cos(rad);
-            const actualBottom = branchBottom + yDist;
-            
-            leaf.style.bottom = `${actualBottom}px`;
-            
-            if (isBranchLeft) {
-                leaf.style.left = `calc(50% - ${xDist}px)`;
-                if (index % 2 === 0) {
-                    leaf.style.marginLeft = '-45px'; 
-                    leaf.style.transform = 'scaleX(-1) rotate(-15deg)'; 
-                } else {
-                    leaf.style.marginLeft = '-10px';
-                    leaf.style.transform = 'rotate(-75deg)'; 
-                }
-            } else {
-                leaf.style.left = `calc(50% + ${xDist}px)`;
-                if (index % 2 === 0) {
-                    leaf.style.marginLeft = '0px'; 
-                    leaf.style.transform = 'rotate(15deg)'; 
-                } else {
-                    leaf.style.marginLeft = '-45px';
-                    leaf.style.transform = 'scaleX(-1) rotate(75deg)'; 
-                }
-            }
-            leaf.style.opacity = 1;
+            // Use a new class to avoid conflicts with main stem leaf styles
+            leaf.className = 'leaf-on-branch'; 
+ 
+            // Position leaf along the branch
+            const branchItemOffset = 50; // Start items further up the branch
+            const distUpBranch = branchItemOffset + (branchLen - branchItemOffset) / 9 * index;
+ 
+            // Determine which side of the branch to grow on
+            const sideSign = index % 2 === 0 ? 1 : -1; // 1 for outer, -1 for inner
+
+            const branchAngleRad = isBranchLeft ? -45 * (Math.PI / 180) : 45 * (Math.PI / 180);
+
+            // Calculate the leaf's base position along the branch
+            const xPos = distUpBranch * Math.sin(branchAngleRad);
+            const yPos = distUpBranch * Math.cos(branchAngleRad);
+
+            // Position the leaf's pivot point ON the branch
+            const leafX = `calc(50% + ${xPos}px - 22px)`; // Center the leaf (width 50px) on its calculated X position
+            const leafY = `${branchBottom + yPos}px`;
+
+            leaf.style.left = leafX;
+            leaf.style.bottom = leafY; // Set the leaf's pivot point (bottom center) directly on the branch line
+
+            // Rotate the leaf OUT from the branch.
+            const leafAngle = (isBranchLeft ? -45 : 45) + (sideSign * 90);
+            leaf.style.transform = `rotate(${leafAngle}deg)`;
+
+            leaf.style.opacity = 1; // Make it visible
             container.appendChild(leaf);
         }
 
         /* --- ACTIONS --- */
         async function waterPlant() {
-            const can = document.getElementById('water-bottle-wrap');
-            const btn = document.getElementById('btn-water');
-            const txt = document.getElementById('guide-text');
+    const can = document.getElementById('water-bottle-wrap');
+    const btn = document.getElementById('btn-water');
+    const txt = document.getElementById('guide-text');
 
-            can.classList.add('active');
-            btn.classList.add('hidden');
-            
-            setTimeout(() => can.classList.add('pouring'), 100);
+    can.classList.add('active');
+    btn.classList.add('hidden');
+    
+    setTimeout(() => can.classList.add('pouring'), 300);
 
-            // 1. Update State & Visuals (Grow Leaf) at 1.5s
-            setTimeout(async () => {
-                appData.streak++;
-                appData.dayStatus.watered = true;
-                
-                // Pre-calculate future flower
-                ensureFlowerMilestone(appData.streak);
-                
-                saveData();
-                updateStreakUI();
-                
-                // Re-render whole plant
-                renderPlantVisuals(appData.streak);
+   setTimeout(async () => {
 
-                await fetchUniqueFortune();
-                
-                // 2. Stop Watering shortly AFTER leaf appears (e.g. +800ms)
-                setTimeout(() => {
-                    can.classList.remove('pouring');
-                    can.classList.remove('active');
-                    
-                    // 3. Show Buttons & Quote AFTER water stops
-                    document.getElementById('btn-enter').classList.remove('hidden');
-                    document.getElementById('quote-area').classList.add('visible');
-                    txt.innerText = "Growth achieved.";
-                }, 800);
+    appData.streak++;
+    appData.dayStatus.watered = true;
+    ensureFlowerMilestone(appData.streak);
+    saveData();
+    updateStreakUI();
+    renderPlantVisuals(appData.streak);
 
-            }, 1500);
+    // Stop animation immediately
+    can.classList.remove('pouring');
+    can.classList.remove('active');
+
+    // Show buttons and quote immediately
+    document.getElementById('btn-enter').classList.remove('hidden');
+    document.getElementById('quote-area').classList.add('visible');
+    txt.innerText = "Growth achieved.";
+
+    // Fetch quote without waiting for animation
+    fetchUniqueFortune();
+
+}, 3000); // shorter delay just for smooth UI (optional)
         }
 
         async function fetchUniqueFortune() {
-            const t = document.getElementById('quote-txt');
-            const a = document.getElementById('quote-by');
-            
-            let message = "";
-            let author = "Fortune";
-            let foundUnique = false;
+    const t = document.getElementById('quote-txt');
+    const a = document.getElementById('quote-by');
 
-            const unusedDeck = fortuneDeck.filter(q => !appData.seenQuotes.includes(q));
-            
-            if (!foundUnique) {
-                try {
-                    const res = await fetch('https://api.quotable.io/random?tags=inspirational|success');
-                    const data = await res.json();
-                    if (!appData.seenQuotes.includes(data.content)) {
-                        message = data.content;
-                        author = data.author;
-                        foundUnique = true;
-                    }
-                } catch(e) { }
-            }
+    // --- 1. Instant message from offline deck ---
+    let fallbackQuote = "";
+    const unusedDeck = fortuneDeck.filter(q => !appData.seenQuotes.includes(q));
 
-            if (!foundUnique) {
-                if (unusedDeck.length > 0) {
-                    message = unusedDeck[Math.floor(Math.random() * unusedDeck.length)];
-                } else {
-                    message = fortuneDeck[Math.floor(Math.random() * fortuneDeck.length)];
-                }
-            }
+    if (unusedDeck.length > 0) {
+        fallbackQuote = unusedDeck[Math.floor(Math.random() * unusedDeck.length)];
+    } else {
+        // If user saw all, recycle
+        fallbackQuote = fortuneDeck[Math.floor(Math.random() * fortuneDeck.length)];
+    }
 
-            appData.seenQuotes.push(message);
+    t.innerText = `"${fallbackQuote}"`;
+    a.innerText = "- Fortune";
+
+    // Save fallback (temporary)
+    appData.seenQuotes.push(fallbackQuote);
+    saveData();
+
+    // --- 2. Fetch API in background (no waiting UI) ---
+    try {
+        const res = await fetch("https://api.quotable.io/random?tags=inspirational|success");
+        const data = await res.json();
+
+        if (data && data.content && !appData.seenQuotes.includes(data.content)) {
+            // Replace UI text with API result
+            t.innerText = `"${data.content}"`;
+            a.innerText = `- ${data.author}`;
+
+            // Replace fallback in storage with real quote
+            appData.seenQuotes.pop(); 
+            appData.seenQuotes.push(data.content);
             saveData();
+        }
 
-            t.innerText = `"${message}"`;
-            a.innerText = `- ${author}`;
+    } catch (err) {
+        console.warn("API fetch failed → fallback used.");
+    }
+
         }
 
         /* --- PLANNER --- */
